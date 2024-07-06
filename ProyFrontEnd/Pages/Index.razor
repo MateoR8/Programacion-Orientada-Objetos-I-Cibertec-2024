@@ -1,0 +1,110 @@
+﻿@page "/"
+
+@using CapaEntidad
+@using Newtonsoft.Json
+@using RestSharp
+@using ProyFrontEnd.Data
+@using System.Net
+
+@code{
+    List<AlumnoEnt> objAlumno = new List<AlumnoEnt>();
+
+    protected override void OnInitialized()
+    {
+        ListarAlumnos();
+        base.OnInitialized();
+    }
+
+    void ListarAlumnos()
+    {
+        try
+        {
+            var cliente = new RestClient(MetaGlobal.RutaApi + "Alumno/ListarAlumno?orden=1&idAlumnoC=0");
+            var request = new RestRequest();
+            request.Method = Method.Get;
+            var response = cliente.Execute(request);
+            if(response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                objAlumno = new List<AlumnoEnt>();
+            } else
+            {
+                objAlumno = JsonConvert.DeserializeObject<List<AlumnoEnt>>(response.Content);
+
+            }
+
+        } catch(Exception ex)
+        {
+        }
+    }
+
+    void EliminarAlumno(int idAlumno)
+    {
+        try
+        {
+            var cliente = new RestClient(MetaGlobal.RutaApi + "Alumno/EliminarAlumno?idAlumno=" + idAlumno);
+            var request = new RestRequest();
+            request.Method = Method.Delete;
+            var response = cliente.Execute(request);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                ListarAlumnos();
+            }
+        } catch (Exception ex)
+        {
+        }
+    }
+}
+
+<div>
+    <h1>Listado de Alumnos</h1>
+</div>
+<hr/>
+<br/>
+
+<div class="row">
+    <div class="col-md-10"></div>
+    <div class="col-md-2">
+        <a class="btn btn-success" href="/formulario?IdAlumnos=0">Nuevo Registro</a>
+    </div>
+</div>
+
+<br/>
+<br/>
+
+<div class="row">
+    <div class="col-md-12 table-responsive">
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Id Alumno</th>
+                    <th>Alumno</th>
+                    <th>Ciclo</th>
+                    <th>Carrera</th>
+                    <th>Fecha de Registro</th>
+                    <th>Opciones</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                @if (objAlumno.Count() > 0)
+                {
+                    @foreach (var item in objAlumno)
+                    {
+                        <tr>
+                            <td>@item.IdAlumno</td>
+                            <td>@item.Nombres - @item.Apellidos</td>
+                            <td>@item.Ciclo</td>
+                            <td>@item.Carrera</td>
+                            <td>@item.FechaRegistro</td>
+                            <td>
+                                <a href='/formulario?IdAlumnos=@item.IdAlumno.ToString()' class="btn btn-primary">Editar</a>
+                                <button class="btn btn-danger" @onclick="(()=>EliminarAlumno(item.IdAlumno))" >Eliminar</button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+

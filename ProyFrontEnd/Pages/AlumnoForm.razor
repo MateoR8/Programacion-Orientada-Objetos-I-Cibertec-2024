@@ -1,0 +1,264 @@
+﻿@page "/formulario"
+@using CapaEntidad
+@using Newtonsoft.Json
+@using RestSharp
+@using ProyFrontEnd.Data
+@using System.Net
+
+@code {
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+
+    public string IdAlumnos { get; set; }
+
+    int IdKey = 0;
+
+    ResultadoTransationEnt resultado = new ResultadoTransationEnt();
+
+    AlumnoEnt alumno = new AlumnoEnt();
+    AlumnoCursoEnt alumnoCurso = new AlumnoCursoEnt();
+
+    List<CursoEnt> objCurso = new List<CursoEnt>();
+    CursoEnt curso = new CursoEnt();
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            alumno = new AlumnoEnt();
+            alumno.alumnoCursos = new List<AlumnoCursoEnt>();
+            alumnoCurso = new AlumnoCursoEnt();
+
+            IdKey = Convert.ToInt32(IdAlumnos);
+            ListarComboBox();
+
+            if(IdKey > 0)
+            {
+                ListarAlumnoXID();
+            }
+
+        }
+        catch (Exception ex){ }
+
+        base.OnInitialized();
+    }
+
+    void ListarComboBox()
+    {
+        try
+        {
+            var cliente = new RestClient(MetaGlobal.RutaApi + "Curso/listarCurso");
+            var request = new RestRequest();
+            request.Method = Method.Get;
+            var response = cliente.Execute(request);
+            if (response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                objCurso = new List<CursoEnt>();
+            }
+            else
+            {
+                objCurso = JsonConvert.DeserializeObject<List<CursoEnt>>(response.Content);
+                if (objCurso.Count > 0)
+                {
+                    curso.IdCurso = objCurso.First().IdCurso; 
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+        }
+    }
+
+    void ListarAlumnoXID()
+    {
+        try
+        {
+            var cliente = new RestClient(MetaGlobal.RutaApi + "Alumno/ListarAlumnoXID?orden=2&idAlumno=" + IdAlumnos);
+            var request = new RestRequest();
+            request.Method = Method.Get;
+            var response = cliente.Execute(request);
+
+            if (response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                alumno = new AlumnoEnt();
+            } else
+            {
+                alumno = JsonConvert.DeserializeObject<AlumnoEnt>(response.Content);
+            }
+
+
+
+        } catch (Exception ex){}
+    }
+
+    void EditarDetalle(AlumnoCursoEnt valor)
+    {
+        alumnoCurso = valor;
+    }
+
+    void EliminarDetalle(AlumnoCursoEnt valor)
+    {
+        alumno.alumnoCursos.Remove(valor);
+    }
+
+    void AgregarListaDetalle()
+    {
+        alumnoCurso.idCurso = curso.IdCurso;
+
+        if (alumnoCurso.IdAlumnoCurso > 0)
+        {
+            var data = alumno.alumnoCursos.FirstOrDefault(w => w.IdAlumnoCurso == alumnoCurso.IdAlumnoCurso);
+
+            if (data != null)
+            {
+                data.idCurso = alumnoCurso.idCurso;
+                data.Nota = alumnoCurso.Nota;
+            }
+        }
+        else
+        {
+            alumno.alumnoCursos.Add(alumnoCurso);
+        }
+
+        alumnoCurso = new AlumnoCursoEnt();
+    }
+
+    void AgregarCurso()
+    {
+        alumnoCurso.idCurso = curso.IdCurso;
+        alumno.alumnoCursos.Add(alumnoCurso);
+
+        var Json = JsonConvert.SerializeObject(alumno);
+
+        try
+        {
+            var _client = new RestClient(MetaGlobal.RutaApi + "Alumno/RegistrarAlumno");
+            var _request = new RestRequest();
+            _request.Method = Method.Post;
+            _request.AddJsonBody(Json);
+            var _response = _client.Execute(_request);
+            if (_response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                resultado.IdRegistro = -1;
+                resultado.Mensaje = _response.Content;
+            }
+            else
+            {
+                var respuesta = JsonConvert.DeserializeObject<ResultadoTransationEnt>(_response.Content);
+
+                resultado.IdRegistro = -1;
+                resultado.Mensaje = "Registro Correcto";
+            }
+
+        }
+        catch (Exception ex)
+        {
+            resultado.IdRegistro = -1;
+            resultado.Mensaje = ex.Message;
+
+        }
+    }
+}
+
+<div>
+    <h1>Nuevo Registro / Actualizar Registro</h1>
+</div>
+<hr />
+<br />
+
+<div class="row">
+    <div class="col-md-3">
+        <label>Nombre</label>
+        <input type="text" class="form-control" @bind="alumno.Nombres" />
+    </div>
+    <div class="col-md-3">
+        <label>Apellidos</label>
+        <input type="text" class="form-control" @bind="alumno.Apellidos" />
+    </div>
+    <div class="col-md-2">
+        <label>Ciclo</label>
+        <input type="text" class="form-control" @bind="alumno.Ciclo" />
+    </div>
+    <div class="col-md-2">
+        <label>Carrera</label>
+        <input type="text" class="form-control" @bind="alumno.Carrera" />
+    </div>
+    <div class="col-md-2">
+        <button class="btn btn-success mt-3" @onclick="AgregarCurso">Guardar</button>
+    </div>
+</div>
+
+<br />
+<br />
+
+<div class="row">
+    <div class="col-md-8">
+        <label>Cursos</label>
+        <EditForm Model="curso">
+            <InputSelect class="form-select-lg form-control" @bind-Value="@curso.IdCurso">
+                @if (objCurso.Count() > 0)
+                {
+                    @foreach (var item in objCurso)
+                    {
+                        <option value="@item.IdCurso">@item.NombreCurso</option>
+                    }
+                }
+            </InputSelect>
+        </EditForm>
+    </div>
+
+    <div class="col-md-2">
+        <label>Nota</label>
+        <input type="text" class="form-control" @bind = "alumnoCurso.Nota"/>
+    </div>
+
+    <div class="col-md-2">
+        <button class="btn btn-success" @onclick="AgregarListaDetalle">Agregar</button>
+    </div>
+</div>
+
+<br />
+<br />
+
+<div class="row">
+    <div class="col-md-12 table-responsive">
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Cod Curso</th>
+                    <th>Curso</th>
+                    <th>Nota</th>
+                    <th>Opciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (alumno != null && alumno.alumnoCursos != null && alumno.alumnoCursos.Count() > 0)
+                {
+                    foreach (var item in alumno.alumnoCursos)
+                    {
+                        var cursoInfo = objCurso.FirstOrDefault(c => c.IdCurso == item.idCurso);
+                        if (cursoInfo != null)
+                        {
+                            <tr>
+                                <td>@cursoInfo.CodCurso</td>
+                                <td>@cursoInfo.NombreCurso</td>
+                                <td>@item.Nota</td>
+                                <td>
+                                    @if (item.IdAlumnoCurso > 0)
+                                    {
+                                        <button class="btn btn-primary" @onclick="(() => EditarDetalle(item))">Editar</button>
+                                    }
+                                    @if (item.IdAlumnoCurso == 0)
+                                    {
+                                        <button class="btn btn-danger" @onclick="(() => EliminarDetalle(item))">Eliminar</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
